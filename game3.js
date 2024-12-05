@@ -43,12 +43,19 @@ var shininessULoc; // where to put specular exponent for fragment shader
 
 // Call updateTranslations before rendering
 var translationIntervalId = null;  // Store interval ID
-var flagg = 0;
+var boundaryHit = true;
+var bulletFire = 0;
 
 function startTranslationUpdates() {
     translationIntervalId = setInterval(() => {
         updateBulletTranslation();
     }, 50);
+}
+
+function startAlienTranslationUpdates() {
+    translationIntervalId = setInterval(() => {
+        updateAlienBulletTranslation();
+    }, 300);
 }
 
 
@@ -86,6 +93,50 @@ function getJSONFile(url,descr) {
     }
 } // end get input json file
 
+
+let time = 0; // Time variable for oscillation
+const frequency = 0.05; // Speed of oscillation
+const amplitude = 0.5; // Maximum horizontal oscillation
+const dropSpeed = -0.01; // Speed of dropping along the y-axis
+let times = [];
+
+function updateSinusoidalTranslation( ) {
+
+    if(times.length == 0) {
+        for(let i=0; i<inputTriangles.length; i++) {
+            times.push(0);
+        }
+    }
+
+
+
+    // Target a specific triangle set (e.g., the second triangle)
+        for(let i=2; i<6; i++) {
+            currSet = inputTriangles[2];
+            currSet.attack = true;
+            times[i] += frequency; // Increment time for oscillation
+            // Apply sinusoidal motion to the x-axis
+            currSet.translation[0] = amplitude * Math.sin(times[i]);
+
+            // Decrease the y-axis position to simulate dropping
+            currSet.translation[1] += dropSpeed;
+            // startAlienTranslationUpdates();
+
+            // Check if it reaches the bottom boundary and reset
+            if (currSet.translation[1] < -1.75) { // Assuming -1.5 is the "ground"
+                currSet.translation[1] = 1.5; // Reset to the top
+                currSet.translation[0] = 0; // Center the x-axis
+                times[i] = 0; // Reset time for oscillation
+            } else {
+
+                renderModels(); // Re-render the scene with updated translations
+                requestAnimationFrame(updateSinusoidalTranslation); // Schedule the next frame
+            }
+        }
+        // console.log(⁠Triangle ${whichSet} Translation: X=${currSet.translation[0]}, Y=${currSet.translation[1]} ⁠);
+
+}
+
 // does stuff when keys are pressed
 function handleKeyDown(event) {
     handleKeyDown.modelOn = inputTriangles[0];
@@ -94,15 +145,18 @@ function handleKeyDown(event) {
     function translateModel(offset) {
         if (handleKeyDown.modelOn != null) {
             vec3.add(handleKeyDown.modelOn.translation,handleKeyDown.modelOn.translation,offset);
-            vec3.add(handleKeyDown.anotherModelOn.translation,handleKeyDown.anotherModelOn.translation,offset);
+            if(!bulletFire) {
+                vec3.add(handleKeyDown.anotherModelOn.translation,handleKeyDown.anotherModelOn.translation,offset);
+            }
+            
         }
     } // end translate model
 
-    function translateBullet(offset) {
-        if (handleKeyDown.modelOn != null) {
-            vec3.add(handleKeyDown.anotherModelOn.translation,handleKeyDown.anotherModelOn.translation,offset);
-        }
-    } // end translate model
+    // function translateBullet(offset) {
+    //     if (handleKeyDown.modelOn != null) {
+    //         vec3.add(handleKeyDown.anotherModelOn.translation,handleKeyDown.anotherModelOn.translation,offset);
+    //     }
+    // } // end translate model
     
     // set up needed view params
     var lookAt = vec3.create(), viewRight = vec3.create(), temp = vec3.create(), viewUp = vec3.create(); // lookat, right & temp vectors
@@ -119,11 +173,14 @@ function handleKeyDown(event) {
         case "ArrowLeft": // select previous triangle set
             translateModel(vec3.scale(temp,viewRight,-viewDelta));
             break;
-        case "Space": // select previous triangle set
+        case "Space": 
+            // select previous triangle set
             // renderBullet(inputTriangles[0]);
             // translateBullet(vec3.scale(temp,viewUp,viewDelta));
-            flagg = 0;
+            if(boundaryHit) {
+            bulletFire = 1;
             startTranslationUpdates();
+            }
             break;
         case "Escape": // reset view to default
             Eye = vec3.copy(Eye,defaultEye);
@@ -235,6 +292,7 @@ function loadModels() {
                 inputTriangles[whichSet].translation = vec3.fromValues(0,0,0); // no translation
                 inputTriangles[whichSet].xAxis = vec3.fromValues(1,0,0); // model X axis
                 inputTriangles[whichSet].yAxis = vec3.fromValues(0,1,0); // model Y axis 
+                inputTriangles[whichSet].attack = false;
 
                 // set up the vertex and normal arrays, define model center and axes
                 inputTriangles[whichSet].glVertices = []; // flat coord list for webgl
@@ -560,28 +618,29 @@ function renderModels() {
 
 
 function updateTranslations() {
-    let boundaryHit = false;
+    let boundaryHitAlien = false;
 
     // Loop through each triangle set and update translation
     for (var whichSet = 2; whichSet < inputTriangles.length; whichSet++) {
         var currSet = inputTriangles[whichSet];
+        if(currSet.attack == false) {
+            // Adjust translation based on direction
+            if (moveRight) {
+                currSet.translation[0] += moveSpeed; // Move right
+            } else {
+                currSet.translation[0] -= moveSpeed; // Move left
+            }
 
-        // Adjust translation based on direction
-        if (moveRight) {
-            currSet.translation[0] += moveSpeed; // Move right
-        } else {
-            currSet.translation[0] -= moveSpeed; // Move left
-        }
-
-        // Check if any triangle hits the boundary (assume [-1, 1] normalized device coords)
-        var newPosX = currSet.center[0] + currSet.translation[0];
-        if (newPosX >= 1.5 || newPosX <= -0.5) {
-            boundaryHit = true;
+            // Check if any triangle hits the boundary (assume [-1, 1] normalized device coords)
+            var newPosX = currSet.center[0] + currSet.translation[0];
+            if (newPosX >= 1.5 || newPosX <= -0.5) {
+                boundaryHitAlien = true;
+            }
         }
     }
 
     // Reverse direction if boundary is hit
-    if (boundaryHit) {
+    if (boundaryHitAlien) {
         moveRight = !moveRight;
     }
 }
@@ -589,9 +648,9 @@ function updateTranslations() {
 
 
 function updateBulletTranslation() {
-    let boundaryHit = false;
+    boundaryHit = false;
     
-    console.log("set interva inside")
+    // console.log("set interva inside")
 
     // Loop through each triangle set and update translation
     for (var whichSet = 1; whichSet < 2; whichSet++) {
@@ -617,13 +676,56 @@ function updateBulletTranslation() {
     // Reverse direction if boundary is hit
     if (boundaryHit) {
         console.log("hitt hit hit")
-        currSet.translation[1] = 0; 
-        inputTriangles[whichSet].vertices = inputTriangles[whichSet-1].vertices;
-        // moveUp = !moveUp;
+        currSet.translation[1] = inputTriangles[0].translation[1]; 
+        currSet.translation[0] = inputTriangles[0].translation[0]; 
+        console.log(inputTriangles[whichSet].vertices);
+        // inputTriangles[1].vertices = inputTriangles[0].vertices;
+        console.log(inputTriangles[1].vertices);
+        bulletFire = 0;
         clearInterval(translationIntervalId);
-        flagg = 1;
         return;
     }
+}
+
+function updateAlienBulletTranslation() {
+    // boundaryHit = false;
+    
+    // console.log("set interva inside")
+
+    // Loop through each triangle set and update translation
+    for (var whichSet = 3; whichSet < 6; whichSet++) {
+        var currSet = inputTriangles[whichSet];
+
+        // Adjust translation based on direction
+        if (moveUp) {
+            currSet.translation[0] = 0; // Snap to origin
+            currSet.translation[1] -= 0.0025; // Move right
+        } else {
+            currSet.translation[1] = 0; // Snap to origin
+            
+
+        }
+
+        // Check if any triangle hits the boundary (assume [-1, 1] normalized device coords)
+        var newPosX = currSet.center[1] + currSet.translation[1];
+        if (newPosX >= 1.5 || newPosX <= -0.5) {
+            // boundaryHit = true;
+            console.log("bingo") 
+        }
+    }
+
+    // Reverse direction if boundary is hit
+    // if (boundaryHit) {
+    //     console.log("hitt hit hit")
+    //     currSet.translation[1] = inputTriangles[0].translation[1]; 
+    //     currSet.translation[0] = inputTriangles[0].translation[0]; 
+    //     console.log(inputTriangles[whichSet].vertices);
+    //     // inputTriangles[1].vertices = inputTriangles[0].vertices;
+    //     console.log(inputTriangles[1].vertices);
+    //     bulletFire = 0;
+    //     clearInterval(translationIntervalId);
+    //     return;
+    // }
 }
 
 
@@ -635,6 +737,7 @@ function main() {
     loadModels(); // load in the models from tri file
     setupShaders(); // setup the webGL shaders
     renderModels(); // draw the triangles using webGL
+    requestAnimationFrame(updateSinusoidalTranslation);
     setInterval(updateTranslations, 100);
   
 } // end main
