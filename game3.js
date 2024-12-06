@@ -49,6 +49,7 @@ var translationAlienIntervalId = null;  // Store interval ID
 var boundaryHit = true;
 var boundaryHitAlienBullet = true;
 var bulletFire = 0;
+var isGameActive = false; // Track whether the game is currently running
 
 function startTranslationUpdates() {
     translationIntervalId = setInterval(() => {
@@ -158,6 +159,7 @@ function checkCollisionBulletWithShip(bulletIndex, alienIndex) {
             inputTriangles[1].visible = false;
 
             resetAlienBullet(bulletIndex, alienIndex);
+            resetGame();
             return;
         }
     }
@@ -192,7 +194,7 @@ function checkCollisionAlienWithShip(i, ship) {
         alien.visible = false;
         ship.visible = false;
         shipBullet.visible = false;
-        // resetBullet();
+        resetGame();
         return;
     }
 
@@ -207,133 +209,7 @@ let times = [];
 let activeAlienIndex = 2; // Start with the first triangle in the range
 let progress = {};
 let start = 2;
-
-// function updateSinusoidalTranslation( ) {
-
-//     if(times.length == 0) {
-//         for(let i=0; i<inputTriangles.length; i++) {
-//             times.push(0);
-//             inputTriangles[i].visible = true;
-//         }
-//     }
-    
-//     let i = start;
-//     // Target a specific triangle set (e.g., the second triangle)
-//     while(i<start+4) {
-//         // console.log(i);
-//         currSet = inputTriangles[i];
-//         checkCollisionAlienWithShip(i,inputTriangles[0]);
-//         if (!currSet.visible) {
-//             i++;
-//             continue;
-//         }
-//         // currSet.attack = true;
-//         times[i] += frequency; // Increment time for oscillation
-//         // Apply sinusoidal motion to the x-axis
-//         currSet.translation[0] = amplitude * Math.sin(times[i]);
-
-//         // Decrease the y-axis position to simulate dropping
-//         currSet.translation[1] += dropSpeed;
-//         // startAlienTranslationUpdates();
-
-//         // for(var j=0;j<3;j++) {
-//             // currSet.translation[1] 
-//             updateAlienBulletTranslation(i+1, i);
-//         // }
-
-//         // Check if it reaches the bottom boundary and reset
-//         if (currSet.translation[1] < -1.75) { // Assuming -1.5 is the "ground"
-//             // currSet.translation[1] = 1.5; // Reset to the top
-//             // currSet.translation[0] = 0; // Center the x-axis
-//             // times[i] = 0; // Reset time for oscillation
-//             currSet.visible = false; // Make the triangle disappear
-//             inputTriangles[i+1].visible = false;
-//             inputTriangles[i+2].visible = false;
-//             inputTriangles[i+3].visible = false;
-//             i = start + 4;
-//             start = start + 4;
-//             for (let j = start; j < start + 4 && j < inputTriangles.length; j++) {
-//                 if (!times[j]) times[j] = 0; // Initialize `times` if not already set
-//                 inputTriangles[j].visible = true; // Ensure the triangles are visible
-//                 // inputTriangles[j].translation = [0, , 0]; // Reset position
-//             }
-//         } else {
-//             i++;
-//         }
-//     }
-//     renderModels();  // Re-render the scene with updated translations
-//     requestAnimationFrame(updateSinusoidalTranslation); // Schedule the next frame
-
-// }
-
-// does stuff when keys are pressed
-
-// function updateSinusoidalTranslation(alienIndex) {
-//     return new Promise((resolve) => {
-//         let allInvisible = true; // Track if all triangles in the group are invisible
-
-//         const totalBoundary = 1.8; // Total boundary length
-//         const quarterBoundary = totalBoundary / 4; // Length of each quarter
-
-//         // Track progress for milestones
-//         if (!progress[alienIndex]) {
-//             progress[alienIndex] = [false, false, false]; // 1/4th, 2/4th, 3/4th milestones
-//         }
-
-//         for (let i = alienIndex; i < alienIndex + 4 && i < inputTriangles.length; i++) {
-//             const currSet = inputTriangles[i]; // Access the specific triangle
-
-//             if (!currSet) {
-//                 console.error(`Triangle with index ${triangleIndex} does not exist.`);
-//                 resolve(); // Resolve to avoid breaking the animation loop
-//                 return;
-//             }
-
-//             // Initialize `times` and `visible` if not already done
-//             if (times[i] === undefined) {
-//                 times[i] = 0; // Initialize time for this triangle
-//                 // currSet.visible = true; // Set the triangle as visible initially
-//             }
-
-//             // Skip updates for invisible triangles
-//             if (!currSet.visible) continue;
-
-//             allInvisible = false; // At least one triangle is still visible
-
-//             times[i] += frequency; // Increment time for sinusoidal motion
-
-//             // Apply sinusoidal motion to the x-axis
-//             currSet.translation[0] = amplitude * Math.sin(times[i]);
-
-//             // Decrease the y-axis position to simulate dropping
-//             currSet.translation[1] += dropSpeed;
-
-//             // Calculate the current progress along the boundary
-//             const progressY = -currSet.translation[1]; // Distance covered from the top
-//             const milestones = progress[alienIndex];
-
-//             // Trigger translations for other triangles at each 1/4th milestone
-//             if (progressY >= quarterBoundary && !milestones[0]) {
-//                 updateAlienBulletTranslation(alienIndex + 1, alienIndex); // Trigger for triangle 2
-//                 milestones[0] = true; // Mark milestone as reached
-//             } else if (progressY >= 2 * quarterBoundary && !milestones[1]) {
-//                 updateAlienBulletTranslation(alienIndex + 2, alienIndex); // Trigger for triangle 3
-//                 milestones[1] = true;
-//             } else if (progressY >= 3 * quarterBoundary && !milestones[2]) {
-//                 updateAlienBulletTranslation(alienIndex + 3, alienIndex); // Trigger for triangle 4
-//                 milestones[2] = true;
-//             }
-
-//             // Check if the triangle hits the bottom boundary
-//             if (currSet.translation[1] < -1.75) { // Assuming -1.75 is the "ground"
-//                 currSet.visible = false; // Make the triangle disappear
-//             }
-//         }
-//         if (allInvisible) resolve();
-//         renderModels();
-//         requestAnimationFrame(() => updateSinusoidalTranslation(alienIndex).then(resolve));
-//     });
-// }
+let animationFrameId = null; // Track the current animation frame ID
 
 function updateSinusoidalTranslation(startIndex) {
     return new Promise((resolve) => {
@@ -397,10 +273,9 @@ function updateSinusoidalTranslation(startIndex) {
 
         renderModels();
         // Schedule the next frame
-        requestAnimationFrame(() => updateSinusoidalTranslation(startIndex).then(resolve));
+        animationFrameId = requestAnimationFrame(() => updateSinusoidalTranslation(startIndex).then(resolve));
     });
 }
-
 
 async function dropAliens() {
     var alienBullets = [];
@@ -413,14 +288,12 @@ async function dropAliens() {
         }
     }
     if(activeAlienIndex < inputTriangles.length) { // Update triangles 2 to 5 sequentially
+        console.log("isGameActive");
         await updateSinusoidalTranslation(activeAlienIndex);
         activeAlienIndex += 4;
         dropAliens();
     }
 }
-
-
-
 
 function handleKeyDown(event) {
     handleKeyDown.modelOn = inputTriangles[0];
@@ -451,39 +324,16 @@ function handleKeyDown(event) {
         case "ArrowLeft": // select previous triangle set
             translateModel(vec3.scale(temp,viewRight,-viewDelta));
             break;
-        // case "Space": 
-        //     // select previous triangle set
-        //     // renderBullet(inputTriangles[0]);
-        //     // translateBullet(vec3.scale(temp,viewUp,viewDelta));
-        //     if(boundaryHit) {
-        //     bulletFire = 1;
-        //     startTranslationUpdates();
-        //     setInterval(checkCollision,100);
-        //     }
-        //     break;
-        case "Space": 
-            // if(boundaryHit) {
-            //     bulletFire = 1;
-            //     resetBullet();
-
-            //     startTranslationUpdates();
-            // }
-            
+        case "Space":             
             if (!bulletFire) { // Only fire if the bullet isn't already fired
-
                 bulletFire = 1;
 
                 // Reset bullet position to the spaceship's position before firing
-
                 inputTriangles[1].translation[1] = inputTriangles[0].translation[1];
-
                 inputTriangles[1].translation[0] = inputTriangles[0].translation[0];
-
-
 
                 // Start the bullet's movement upwards
                 startTranslationUpdates();
-
             }
             break;
         case "Escape": // reset view to default
@@ -493,6 +343,69 @@ function handleKeyDown(event) {
             break;
     } // end switch
 } // end handleKeyDown
+
+function startGame() {
+    if (isGameActive) return; // Prevent multiple calls to startGame
+    isGameActive = true; // Set the game as active
+
+    // Reset the positions of all triangles
+    inputTriangles.forEach((triangle, index) => {
+        triangle.translation = vec3.fromValues(0, 0, 0); // Reset translations
+        triangle.visible = true; // Make all triangles visible
+        triangle.attack = false; // Reset attack status
+        triangle.isAlienBulletTranslationEnabled = false; // Reset alien bullet state
+    });
+
+    // Reset global variables
+    times = [];
+    activeAlienIndex = 2; // Start with the first alien group
+    start = 2; // Reset alien dropping index
+
+    // Start the game mechanics
+    bulletFire = 0; // Ensure no bullet is initially fired
+    clearInterval(translationIntervalId); // Clear any previous intervals
+    clearInterval(translationAlienIntervalId);
+    translationIntervalId = setInterval(updateTranslations, 100); // Start alien translations
+    translationAlienIntervalId = setInterval(checkCollisionBulletWithAlien, 100); // Start collision detection
+
+    // Start alien dropping
+    dropAliens();
+
+    console.log("Game started!");
+}
+
+function resetGame() {
+    isGameActive = false; // Set the game as inactive
+
+    // Cancel any ongoing requestAnimationFrame calls
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null; // Clear the ID
+    }
+
+    // Stop all ongoing intervals
+    clearInterval(translationIntervalId);
+    clearInterval(translationAlienIntervalId);
+
+    // Reset all triangles to their initial states
+    inputTriangles.forEach((triangle) => {
+        triangle.translation = vec3.fromValues(0, 0, 0); // Reset translations
+        triangle.visible = true; // Make all triangles visible
+        triangle.attack = false; // Reset attack state
+        triangle.isAlienBulletTranslationEnabled = false; // Disable bullet motion
+    });
+
+    // Reset global variables
+    times = [];
+    activeAlienIndex = 2; // Reset to the first alien group
+    start = 2; // Reset alien dropping index
+    bulletFire = 0; // Stop any bullet activity
+
+    // Perform a render to reflect the reset state
+    renderModels();
+
+    console.log("Game has been reset to its initial state. Press 'S' to start again.");
+}
 
 // set up the webGL environment
 function setupWebGL() {
@@ -1027,13 +940,21 @@ function main() {
     loadModels(); // load in the models from tri file
     setupShaders(); // setup the webGL shaders
     renderModels(); // draw the triangles using webGL
-    setInterval(updateTranslations, 100);
-    setInterval(checkCollisionBulletWithAlien,100);
-    requestAnimationFrame(updateSinusoidalTranslation);
+    // setInterval(updateTranslations, 100);
+    // setInterval(checkCollisionBulletWithAlien,100);
+    // requestAnimationFrame(updateSinusoidalTranslation);
     // requestAnimationFrame(updateAlienBulletTranslation);
     // startAlienTranslationUpdates();
     // updateAlienBulletTranslation();
-    dropAliens();
+    // dropAliens();
+    // Bind event listeners for starting and resetting the game
+    document.addEventListener("keydown", (event) => {
+        if (event.code === "KeyS") {
+            startGame(); // Start the game when "S" is pressed
+        } else if (event.code === "KeyR") {
+            resetGame(); // Reset the game when "R" is pressed
+        }
+    });
     
   
 } // end main
