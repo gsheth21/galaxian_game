@@ -52,11 +52,11 @@ function startTranslationUpdates() {
     }, 50);
 }
 
-function startAlienTranslationUpdates() {
-    translationIntervalId = setInterval(() => {
-        updateAlienBulletTranslation();
-    }, 300);
-}
+// function startAlienTranslationUpdates() {
+//     translationIntervalId = setInterval(() => {
+//         updateAlienBulletTranslation();
+//     }, 50);
+// }
 
 
 /* interaction variables */
@@ -94,46 +94,143 @@ function getJSONFile(url,descr) {
 } // end get input json file
 
 
+function checkCollisionBulletWithAlien() {
+    if (!bulletFire) return; // Only check collision if a bullet is fired
+
+    let bullet = inputTriangles[1]; // Assuming inputTriangles[1] is the bullet
+    let bulletPos = vec3.fromValues(bullet.center[0] + bullet.translation[0], bullet.center[1] + bullet.translation[1], 0); // Bullet position in 3D
+
+    for (let i = 2; i < inputTriangles.length; i=i+4) {
+            let alien = inputTriangles[i]; 
+            
+
+            let bullet1 = inputTriangles[i+1];// Iterate through all aliens
+            let bullet2 = inputTriangles[i+2];
+            let bullet3 = inputTriangles[i+3];
+
+            if (alien.attack === false) {
+                let alienPos = vec3.fromValues(
+                    alien.center[0] + alien.translation[0],
+                    alien.center[1] + alien.translation[1],
+                    0
+                );
+    
+                let distance = vec3.distance(bulletPos, alienPos);
+                let collisionThreshold = 0.15;
+
+                // Check for intersection (bounding box collision detection)
+                if ( distance< collisionThreshold) {
+                    console.log(alien.center);
+                    console.log(bullet.center);
+                    console.log(distance)
+                    alien.attack = true;
+                    bullet1.visible = false;
+                    bullet2.visible = false;
+                    bullet3.visible = false;
+                    console.log(`Hit alien ${i}!`);
+                    alien.visible = false;
+                    
+                    resetBullet();
+                    return;
+                }
+            }
+    }
+}
+
+function checkCollisionAlienWithShip(i, ship) {
+    let alien = inputTriangles[i];
+    let bullet1 = inputTriangles[i+1];// Iterate through all aliens
+    let bullet2 = inputTriangles[i+2];
+    let bullet3 = inputTriangles[i+3];
+    let shipBullet = inputTriangles[1];
+    let alienPos = vec3.fromValues(alien.center[0] + alien.translation[0], alien.center[1] + alien.translation[1], 0); // Bullet position in 3D
+        
+    let shipPos = vec3.fromValues(
+        ship.center[0] + ship.translation[0],
+        ship.center[1] + ship.translation[1],
+        0
+    );
+
+    let distance = vec3.distance(alienPos, shipPos);
+    let collisionThreshold = 0.25;
+
+    // Check for intersection (bounding box collision detection)
+    if ( distance< collisionThreshold) {
+
+        console.log(distance);
+        alien.attack = true;
+        bullet1.visible = false;
+        bullet2.visible = false;
+        bullet3.visible = false;
+        console.log(`Hit Ship!`);
+        alien.visible = false;
+        ship.visible = false;
+        shipBullet.visible = false;
+        // resetBullet();
+        return;
+    }
+
+}
+
+
 let time = 0; // Time variable for oscillation
 const frequency = 0.05; // Speed of oscillation
 const amplitude = 0.5; // Maximum horizontal oscillation
 const dropSpeed = -0.01; // Speed of dropping along the y-axis
 let times = [];
 
+let start = 2;
+
 function updateSinusoidalTranslation( ) {
 
     if(times.length == 0) {
         for(let i=0; i<inputTriangles.length; i++) {
             times.push(0);
+            inputTriangles[i].visible = true;
         }
     }
-
-
-
+    
+    let i = start;
     // Target a specific triangle set (e.g., the second triangle)
-        for(let i=2; i<6; i++) {
-            currSet = inputTriangles[2];
-            currSet.attack = true;
-            times[i] += frequency; // Increment time for oscillation
-            // Apply sinusoidal motion to the x-axis
-            currSet.translation[0] = amplitude * Math.sin(times[i]);
-
-            // Decrease the y-axis position to simulate dropping
-            currSet.translation[1] += dropSpeed;
-            // startAlienTranslationUpdates();
-
-            // Check if it reaches the bottom boundary and reset
-            if (currSet.translation[1] < -1.75) { // Assuming -1.5 is the "ground"
-                currSet.translation[1] = 1.5; // Reset to the top
-                currSet.translation[0] = 0; // Center the x-axis
-                times[i] = 0; // Reset time for oscillation
-            } else {
-
-                renderModels(); // Re-render the scene with updated translations
-                requestAnimationFrame(updateSinusoidalTranslation); // Schedule the next frame
-            }
+    while(i<start+4) {
+        // console.log(i);
+        currSet = inputTriangles[i];
+        checkCollisionAlienWithShip(i,inputTriangles[0]);
+        if (!currSet.visible) {
+            i++;
+            continue;
         }
-        // console.log(⁠Triangle ${whichSet} Translation: X=${currSet.translation[0]}, Y=${currSet.translation[1]} ⁠);
+        // currSet.attack = true;
+        times[i] += frequency; // Increment time for oscillation
+        // Apply sinusoidal motion to the x-axis
+        currSet.translation[0] = amplitude * Math.sin(times[i]);
+
+        // Decrease the y-axis position to simulate dropping
+        currSet.translation[1] += dropSpeed;
+        // startAlienTranslationUpdates();
+
+        // Check if it reaches the bottom boundary and reset
+        if (currSet.translation[1] < -1.75) { // Assuming -1.5 is the "ground"
+            // currSet.translation[1] = 1.5; // Reset to the top
+            // currSet.translation[0] = 0; // Center the x-axis
+            // times[i] = 0; // Reset time for oscillation
+            currSet.visible = false; // Make the triangle disappear
+            inputTriangles[i+1].visible = false;
+            inputTriangles[i+2].visible = false;
+            inputTriangles[i+3].visible = false;
+            i = start + 4;
+            start = start + 4;
+            for (let j = start; j < start + 4 && j < inputTriangles.length; j++) {
+                if (!times[j]) times[j] = 0; // Initialize `times` if not already set
+                inputTriangles[j].visible = true; // Ensure the triangles are visible
+                // inputTriangles[j].translation = [0, , 0]; // Reset position
+            }
+        } else {
+            i++;
+        }
+    }
+    renderModels();  // Re-render the scene with updated translations
+    requestAnimationFrame(updateSinusoidalTranslation); // Schedule the next frame
 
 }
 
@@ -151,12 +248,6 @@ function handleKeyDown(event) {
             
         }
     } // end translate model
-
-    // function translateBullet(offset) {
-    //     if (handleKeyDown.modelOn != null) {
-    //         vec3.add(handleKeyDown.anotherModelOn.translation,handleKeyDown.anotherModelOn.translation,offset);
-    //     }
-    // } // end translate model
     
     // set up needed view params
     var lookAt = vec3.create(), viewRight = vec3.create(), temp = vec3.create(), viewUp = vec3.create(); // lookat, right & temp vectors
@@ -173,13 +264,39 @@ function handleKeyDown(event) {
         case "ArrowLeft": // select previous triangle set
             translateModel(vec3.scale(temp,viewRight,-viewDelta));
             break;
+        // case "Space": 
+        //     // select previous triangle set
+        //     // renderBullet(inputTriangles[0]);
+        //     // translateBullet(vec3.scale(temp,viewUp,viewDelta));
+        //     if(boundaryHit) {
+        //     bulletFire = 1;
+        //     startTranslationUpdates();
+        //     setInterval(checkCollision,100);
+        //     }
+        //     break;
         case "Space": 
-            // select previous triangle set
-            // renderBullet(inputTriangles[0]);
-            // translateBullet(vec3.scale(temp,viewUp,viewDelta));
-            if(boundaryHit) {
-            bulletFire = 1;
-            startTranslationUpdates();
+            // if(boundaryHit) {
+            //     bulletFire = 1;
+            //     resetBullet();
+
+            //     startTranslationUpdates();
+            // }
+            
+            if (!bulletFire) { // Only fire if the bullet isn't already fired
+
+                bulletFire = 1;
+
+                // Reset bullet position to the spaceship's position before firing
+
+                inputTriangles[1].translation[1] = inputTriangles[0].translation[1];
+
+                inputTriangles[1].translation[0] = inputTriangles[0].translation[0];
+
+
+
+                // Start the bullet's movement upwards
+                startTranslationUpdates();
+
             }
             break;
         case "Escape": // reset view to default
@@ -293,6 +410,7 @@ function loadModels() {
                 inputTriangles[whichSet].xAxis = vec3.fromValues(1,0,0); // model X axis
                 inputTriangles[whichSet].yAxis = vec3.fromValues(0,1,0); // model Y axis 
                 inputTriangles[whichSet].attack = false;
+                inputTriangles[whichSet].visible = true;
 
                 // set up the vertex and normal arrays, define model center and axes
                 inputTriangles[whichSet].glVertices = []; // flat coord list for webgl
@@ -504,14 +622,6 @@ function setupShaders() {
     } // end catch
 } // end setup shaders
 
-
-function renderBullet(spaceShip) {
-    var centerX = spaceShip.vertices[1][0] + spaceShip.vertices[2][0];
-    centerX = centerX / 2;
-    var centerY = spaceShip.vertices[1][1];
-    var centerZ = spaceShip.vertices[1][2];
-
-}
 // render the loaded model
 function renderModels() {
     
@@ -555,11 +665,6 @@ function renderModels() {
     var pvmMatrix = mat4.create(); // hand * proj * view * model matrices
 
 
-
-
-
-    
-
     window.requestAnimationFrame(renderModels); // set up frame render callback
     
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear frame/depth buffers
@@ -579,6 +684,7 @@ function renderModels() {
     var currSet; // the tri set and its material properties
     for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
         currSet = inputTriangles[whichTriSet];
+        if(currSet.visible == false) continue;
 
         // make model transform, add to view project
         makeModelTransform(currSet);
@@ -652,37 +758,23 @@ function updateBulletTranslation() {
     
     // console.log("set interva inside")
 
-    // Loop through each triangle set and update translation
-    for (var whichSet = 1; whichSet < 2; whichSet++) {
-        var currSet = inputTriangles[whichSet];
+    var currSet = inputTriangles[1];
 
-        // Adjust translation based on direction
-        if (moveUp) {
-            currSet.translation[1] += moveSpeed; // Move right
-        } else {
-            currSet.translation[1] = 0; // Snap to origin
-            
+    // Adjust translation based on direction
+    if (moveUp) {
+        currSet.translation[1] += moveSpeed + 0.1; // Move right
+    }
 
-        }
-
-        // Check if any triangle hits the boundary (assume [-1, 1] normalized device coords)
-        var newPosX = currSet.center[1] + currSet.translation[1];
-        if (newPosX >= 1.5 || newPosX <= -0.5) {
-            boundaryHit = true;
-            console.log("bingo") 
-        }
+    // Check if any triangle hits the boundary (assume [-1, 1] normalized device coords)
+    var newPosX = currSet.center[1] + currSet.translation[1];
+    if (newPosX >= 1.5 || newPosX <= -0.5) {
+        boundaryHit = true;
+        // console.log("bingo") 
     }
 
     // Reverse direction if boundary is hit
     if (boundaryHit) {
-        console.log("hitt hit hit")
-        currSet.translation[1] = inputTriangles[0].translation[1]; 
-        currSet.translation[0] = inputTriangles[0].translation[0]; 
-        console.log(inputTriangles[whichSet].vertices);
-        // inputTriangles[1].vertices = inputTriangles[0].vertices;
-        console.log(inputTriangles[1].vertices);
-        bulletFire = 0;
-        clearInterval(translationIntervalId);
+        resetBullet();
         return;
     }
 }
@@ -728,6 +820,18 @@ function updateAlienBulletTranslation() {
     // }
 }
 
+function resetBullet() {
+    bulletFire = 0; // Stop bullet firing
+    let bullet = inputTriangles[1];
+    let spaceship = inputTriangles[0];
+
+    // Reset bullet position to spaceship
+    bullet.translation[1] = spaceship.translation[1];
+    bullet.translation[0] = spaceship.translation[0];
+
+    clearInterval(translationIntervalId); // Stop the bullet movement interval
+}
+
 
 /* MAIN -- HERE is where execution begins after window load */
 
@@ -737,7 +841,10 @@ function main() {
     loadModels(); // load in the models from tri file
     setupShaders(); // setup the webGL shaders
     renderModels(); // draw the triangles using webGL
-    requestAnimationFrame(updateSinusoidalTranslation);
+    // requestAnimationFrame(updateSinusoidalTranslation);
     setInterval(updateTranslations, 100);
+    setInterval(checkCollisionBulletWithAlien,100);
+    requestAnimationFrame(updateSinusoidalTranslation);
+    
   
 } // end main
