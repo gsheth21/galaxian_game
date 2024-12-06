@@ -30,9 +30,7 @@ var samplerLoc;
 var alphaUniformLocation;
 var moveRight = true; // Initial direction
 var moveUp = true;
-var moveDown = true;
 var moveSpeed = 0.025; // Speed of translation
-var moveDownSpeed = -0.025;
 
 /* shader parameter locations */
 var vPosAttribLoc; // where to put position for vertex shader
@@ -45,9 +43,7 @@ var shininessULoc; // where to put specular exponent for fragment shader
 
 // Call updateTranslations before rendering
 var translationIntervalId = null;  // Store interval ID
-var translationAlienIntervalId = null;  // Store interval ID
 var boundaryHit = true;
-var boundaryHitAlienBullet = true;
 var bulletFire = 0;
 
 function startTranslationUpdates() {
@@ -97,201 +93,7 @@ function getJSONFile(url,descr) {
     }
 } // end get input json file
 
-
-function checkCollisionBulletWithAlien() {
-    if (!bulletFire) return; // Only check collision if a bullet is fired
-
-    let bullet = inputTriangles[1]; // Assuming inputTriangles[1] is the bullet
-    let bulletPos = vec3.fromValues(bullet.center[0] + bullet.translation[0], bullet.center[1] + bullet.translation[1], 0); // Bullet position in 3D
-
-    for (let i = 2; i < inputTriangles.length; i=i+4) {
-            let alien = inputTriangles[i]; 
-            
-
-            let bullet1 = inputTriangles[i+1];// Iterate through all aliens
-            let bullet2 = inputTriangles[i+2];
-            let bullet3 = inputTriangles[i+3];
-
-            if (alien.attack === false) {
-                let alienPos = vec3.fromValues(
-                    alien.center[0] + alien.translation[0],
-                    alien.center[1] + alien.translation[1],
-                    0
-                );
-    
-                let distance = vec3.distance(bulletPos, alienPos);
-                let collisionThreshold = 0.15;
-
-                // Check for intersection (bounding box collision detection)
-                if ( distance< collisionThreshold) {
-                    alien.attack = true;
-                    bullet1.visible = false;
-                    bullet2.visible = false;
-                    bullet3.visible = false;
-                    console.log(`Hit alien ${i}!`);
-                    alien.visible = false;
-                    
-                    resetBullet();
-                    return;
-                }
-            }
-    }
-}
-
-function checkCollisionBulletWithShip(bulletIndex, alienIndex) {
-
-    let bullet = inputTriangles[bulletIndex]; // Assuming inputTriangles[1] is the bullet
-    let bulletPos = vec3.fromValues(bullet.center[0] + bullet.translation[0], bullet.center[1] + bullet.translation[1], 0); // Bullet position in 3D
-    
-    let ship = inputTriangles[0];
-    if (ship.attack === false) {
-        let shipPos = vec3.fromValues(ship.center[0] + ship.translation[0], ship.center[1] + ship.translation[1], 0); // Bullet position in 3D
-
-        let distance = vec3.distance(bulletPos, shipPos);
-        let collisionThreshold = 0.15;
-
-        // Check for intersection (bounding box collision detection)
-        if ( distance< collisionThreshold) {
-            ship.attack = true;
-            console.log(`Hit ship !`);
-            ship.visible = false;
-            inputTriangles[1].visible = false;
-
-            resetAlienBullet(bulletIndex, alienIndex);
-            resetGame();
-            return;
-        }
-    }
-}
-
-function checkCollisionAlienWithShip(i, ship) {
-    let alien = inputTriangles[i];
-    let bullet1 = inputTriangles[i+1];// Iterate through all aliens
-    let bullet2 = inputTriangles[i+2];
-    let bullet3 = inputTriangles[i+3];
-    let shipBullet = inputTriangles[1];
-    let alienPos = vec3.fromValues(alien.center[0] + alien.translation[0], alien.center[1] + alien.translation[1], 0); // Bullet position in 3D
-        
-    let shipPos = vec3.fromValues(
-        ship.center[0] + ship.translation[0],
-        ship.center[1] + ship.translation[1],
-        0
-    );
-
-    let distance = vec3.distance(alienPos, shipPos);
-    let collisionThreshold = 0.25;
-
-    // Check for intersection (bounding box collision detection)
-    if ( distance< collisionThreshold) {
-
-        alien.attack = true;
-        bullet1.visible = false;
-        bullet2.visible = false;
-        bullet3.visible = false;
-        console.log(`Hit Ship!`);
-        alien.visible = false;
-        ship.visible = false;
-        shipBullet.visible = false;
-        resetGame();
-        return;
-    }
-
-}
-
-
-let time = 0; // Time variable for oscillation
-const frequency = 0.05; // Speed of oscillation
-const amplitude = 0.5; // Maximum horizontal oscillation
-const dropSpeed = -0.01; // Speed of dropping along the y-axis
-let times = [];
-let activeAlienIndex = 2; // Start with the first triangle in the range
-let progress = {};
-let start = 2;
-let animationFrameId = null; // Track the current animation frame ID
-
-function updateSinusoidalTranslation(startIndex) {
-    return new Promise((resolve) => {
-        const totalBoundary = 2; // Total boundary length
-        const quarterBoundary = totalBoundary / 4; // Distance to trigger next translations
-
-        const t1 = inputTriangles[startIndex]; // Starting triangle
-        const t2 = inputTriangles[startIndex + 1];
-        const t3 = inputTriangles[startIndex + 2];
-        const t4 = inputTriangles[startIndex + 3];
-
-        // Initialize times for sinusoidal motion
-        times[startIndex] = times[startIndex] || 0;
-        times[startIndex + 1] = times[startIndex + 1] || 0;
-        times[startIndex + 2] = times[startIndex + 2] || 0;
-        times[startIndex + 3] = times[startIndex + 3] || 0;
-
-        // Move the first triangle sinusoidally
-        times[startIndex] += frequency;
-        t1.translation[0] = amplitude * Math.sin(times[startIndex]);
-        t1.translation[1] += dropSpeed;
-
-        if(!t2.isAlienBulletTranslationEnabled) {
-            times[startIndex + 1] += frequency;
-            t2.translation[0] = amplitude * Math.sin(times[startIndex]);
-            t2.translation[1] += dropSpeed;
-        }
-        
-        if(!t3.isAlienBulletTranslationEnabled) {
-            times[startIndex + 2] += frequency;
-            t3.translation[0] = amplitude * Math.sin(times[startIndex]);
-            t3.translation[1] += dropSpeed;
-        }
-
-        if(!t4.isAlienBulletTranslationEnabled) {
-            times[startIndex + 3] += frequency;
-            t4.translation[0] = amplitude * Math.sin(times[startIndex]);
-            t4.translation[1] += dropSpeed;
-        }
-
-        if (-t2.translation[1] >= quarterBoundary) {
-            updateAlienBulletTranslation(startIndex + 1, startIndex, t2.translation[0]); // Move second triangle
-        }
-        if (-t3.translation[1] >= 2 * quarterBoundary) {
-            updateAlienBulletTranslation(startIndex + 2, startIndex, t3.translation[0]); // Move third triangle
-        }
-        if (-t4.translation[1] >= 3 * quarterBoundary) {
-            updateAlienBulletTranslation(startIndex + 3, startIndex, t4.translation[0]); // Move fourth triangle
-        }
-
-        // Check if the first triangle hits the boundary
-        if (t1.translation[1] < -1.75) {
-            t1.visible = false;
-            resolve(); // Resolve when the first triangle finishes
-            return;
-        }
-
-        checkCollisionBulletWithShip(startIndex + 1, startIndex);
-        checkCollisionBulletWithShip(startIndex + 2, startIndex);
-        checkCollisionBulletWithShip(startIndex + 3, startIndex);
-
-        renderModels();
-        // Schedule the next frame
-        animationFrameId = requestAnimationFrame(() => updateSinusoidalTranslation(startIndex).then(resolve));
-    });
-}
-
-async function dropAliens() {
-    var alienBullets = [];
-    var aliens = [];
-    for(var i=2, j=0; i<inputTriangles.length; i++, j++) {
-        if(j%4 == 0) {
-            aliens.push(i);
-        } else {
-            alienBullets.push(i);
-        }
-    }
-    if(activeAlienIndex < inputTriangles.length) { // Update triangles 2 to 5 sequentially
-        await updateSinusoidalTranslation(activeAlienIndex);
-        activeAlienIndex += 4;
-        dropAliens();
-    }
-}
-
+// does stuff when keys are pressed
 function handleKeyDown(event) {
     handleKeyDown.modelOn = inputTriangles[0];
     handleKeyDown.anotherModelOn = inputTriangles[1];
@@ -305,6 +107,12 @@ function handleKeyDown(event) {
             
         }
     } // end translate model
+
+    // function translateBullet(offset) {
+    //     if (handleKeyDown.modelOn != null) {
+    //         vec3.add(handleKeyDown.anotherModelOn.translation,handleKeyDown.anotherModelOn.translation,offset);
+    //     }
+    // } // end translate model
     
     // set up needed view params
     var lookAt = vec3.create(), viewRight = vec3.create(), temp = vec3.create(), viewUp = vec3.create(); // lookat, right & temp vectors
@@ -321,16 +129,13 @@ function handleKeyDown(event) {
         case "ArrowLeft": // select previous triangle set
             translateModel(vec3.scale(temp,viewRight,-viewDelta));
             break;
-        case "Space":             
-            if (!bulletFire) { // Only fire if the bullet isn't already fired
-                bulletFire = 1;
-
-                // Reset bullet position to the spaceship's position before firing
-                inputTriangles[1].translation[1] = inputTriangles[0].translation[1];
-                inputTriangles[1].translation[0] = inputTriangles[0].translation[0];
-
-                // Start the bullet's movement upwards
-                startTranslationUpdates();
+        case "Space": 
+            // select previous triangle set
+            // renderBullet(inputTriangles[0]);
+            // translateBullet(vec3.scale(temp,viewUp,viewDelta));
+            if(boundaryHit) {
+            bulletFire = 1;
+            startTranslationUpdates();
             }
             break;
         case "Escape": // reset view to default
@@ -340,66 +145,6 @@ function handleKeyDown(event) {
             break;
     } // end switch
 } // end handleKeyDown
-
-function startGame() {
-
-    // Reset the positions of all triangles
-    inputTriangles.forEach((triangle, index) => {
-        triangle.translation = vec3.fromValues(0, 0, 0); // Reset translations
-        triangle.visible = true; // Make all triangles visible
-        triangle.attack = false; // Reset attack status
-        triangle.isAlienBulletTranslationEnabled = false; // Reset alien bullet state
-    });
-
-    // Reset global variables
-    times = [];
-    activeAlienIndex = 2; // Start with the first alien group
-    start = 2; // Reset alien dropping index
-
-    // Start the game mechanics
-    bulletFire = 0; // Ensure no bullet is initially fired
-    clearInterval(translationIntervalId); // Clear any previous intervals
-    clearInterval(translationAlienIntervalId);
-    translationIntervalId = setInterval(updateTranslations, 100); // Start alien translations
-    translationAlienIntervalId = setInterval(checkCollisionBulletWithAlien, 10); // Start collision detection
-
-    // Start alien dropping
-    dropAliens();
-
-    console.log("Game started!");
-}
-
-function resetGame() {
-
-    // Cancel any ongoing requestAnimationFrame calls
-    if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = null; // Clear the ID
-    }
-
-    // Stop all ongoing intervals
-    clearInterval(translationIntervalId);
-    clearInterval(translationAlienIntervalId);
-
-    // Reset all triangles to their initial states
-    inputTriangles.forEach((triangle) => {
-        triangle.translation = vec3.fromValues(0, 0, 0); // Reset translations
-        triangle.visible = true; // Make all triangles visible
-        triangle.attack = false; // Reset attack state
-        triangle.isAlienBulletTranslationEnabled = false; // Disable bullet motion
-    });
-
-    // Reset global variables
-    times = [];
-    activeAlienIndex = 2; // Reset to the first alien group
-    start = 2; // Reset alien dropping index
-    bulletFire = 0; // Stop any bullet activity
-
-    // Perform a render to reflect the reset state
-    renderModels();
-
-    console.log("Game has been reset to its initial state. Press 'S' to start again.");
-}
 
 // set up the webGL environment
 function setupWebGL() {
@@ -414,45 +159,6 @@ function setupWebGL() {
       var bkgdImage = new Image(); 
       bkgdImage.crossOrigin = "Anonymous";
       bkgdImage.src = "galaxy.jpg";
-      bkgdImage.onload = function(){
-          var iw = bkgdImage.width, ih = bkgdImage.height;
-          imageContext.drawImage(bkgdImage,0,0,iw,ih,0,0,cw,ch);   
-     }
-
-     
-    // Get the canvas and context
-    var canvas = document.getElementById("myWebGLCanvas"); // create a js canvas
-    gl = canvas.getContext("webgl"); // get a webgl object from it
-    
-    try {
-      if (gl == null) {
-        throw "unable to create gl context -- is your browser gl ready?";
-      } else {
-        //gl.clearColor(0.0, 0.0, 0.0, 1.0); // use black when we clear the frame buffer
-        gl.clearDepth(1.0); // use max when we clear the depth buffer
-        gl.enable(gl.DEPTH_TEST); // use hidden surface removal (with zbuffering)
-      }
-    } // end try
-    
-    catch(e) {
-      console.log(e);
-    } // end catch
- 
-} // end setupWebGL
-
-// set up the webGL environment
-function setupWebGLFile(file) {
-    
-    // Set up keys
-    document.onkeydown = handleKeyDown; // call this when key pressed
-
-
-    var imageCanvas = document.getElementById("myImageCanvas"); // create a 2d canvas
-      var cw = imageCanvas.width, ch = imageCanvas.height; 
-      imageContext = imageCanvas.getContext("2d"); 
-      var bkgdImage = new Image(); 
-      bkgdImage.crossOrigin = "Anonymous";
-      bkgdImage.src = file;
       bkgdImage.onload = function(){
           var iw = bkgdImage.width, ih = bkgdImage.height;
           imageContext.drawImage(bkgdImage,0,0,iw,ih,0,0,cw,ch);   
@@ -542,9 +248,8 @@ function loadModels() {
                 inputTriangles[whichSet].translation = vec3.fromValues(0,0,0); // no translation
                 inputTriangles[whichSet].xAxis = vec3.fromValues(1,0,0); // model X axis
                 inputTriangles[whichSet].yAxis = vec3.fromValues(0,1,0); // model Y axis 
-                inputTriangles[whichSet].attack = false;
+                // inputTriangles[whichSet].attack = false;
                 inputTriangles[whichSet].visible = true;
-                inputTriangles[whichSet].isAlienBulletTranslationEnabled = false;
 
                 // set up the vertex and normal arrays, define model center and axes
                 inputTriangles[whichSet].glVertices = []; // flat coord list for webgl
@@ -798,7 +503,6 @@ function renderModels() {
     var pvMatrix = mat4.create(); // hand * proj * view matrices
     var pvmMatrix = mat4.create(); // hand * proj * view * model matrices
 
-
     window.requestAnimationFrame(renderModels); // set up frame render callback
     
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); // clear frame/depth buffers
@@ -855,15 +559,13 @@ function renderModels() {
     gl.depthMask(true);
 } // end render model
 
-
-
 function updateTranslations() {
     let boundaryHitAlien = false;
 
     // Loop through each triangle set and update translation
     for (var whichSet = 2; whichSet < inputTriangles.length; whichSet++) {
         var currSet = inputTriangles[whichSet];
-        if(currSet.attack == false && currSet.isAlienBulletTranslationEnabled == false) {
+        // if(currSet.attack == false) {
             // Adjust translation based on direction
             if (moveRight) {
                 currSet.translation[0] += moveSpeed; // Move right
@@ -876,7 +578,7 @@ function updateTranslations() {
             if (newPosX >= 1.5 || newPosX <= -0.5) {
                 boundaryHitAlien = true;
             }
-        }
+        // }
     }
 
     // Reverse direction if boundary is hit
@@ -885,86 +587,117 @@ function updateTranslations() {
     }
 }
 
-
-
 function updateBulletTranslation() {
     boundaryHit = false;
     
-    // console.log("set interva inside")
-
     var currSet = inputTriangles[1];
 
     // Adjust translation based on direction
     if (moveUp) {
-        currSet.translation[1] += moveSpeed + 0.1; // Move right
+        currSet.translation[1] += moveSpeed; // Move right
+    } else {
+        currSet.translation[1] = 0; // Snap to origin
+        
+
     }
 
     // Check if any triangle hits the boundary (assume [-1, 1] normalized device coords)
     var newPosX = currSet.center[1] + currSet.translation[1];
     if (newPosX >= 1.5 || newPosX <= -0.5) {
         boundaryHit = true;
-        // console.log("bingo") 
     }
 
     // Reverse direction if boundary is hit
     if (boundaryHit) {
-        resetBullet();
+        currSet.translation[1] = inputTriangles[0].translation[1]; 
+        currSet.translation[0] = inputTriangles[0].translation[0];
+        bulletFire = 0;
+        clearInterval(translationIntervalId);
         return;
     }
 }
 
-function updateAlienBulletTranslation(bulletIndex, alienIndex, translationX) {
-    boundaryHitAlienBullet = false;
+function updateAlienBulletTranslation() {
+    // boundaryHit = false;
+    
+    // console.log("set interva inside")
 
-    var currSet = inputTriangles[bulletIndex];
-    currSet.isAlienBulletTranslationEnabled = true;
+    // Loop through each triangle set and update translation
+    for (var whichSet = 3; whichSet < 6; whichSet++) {
+        var currSet = inputTriangles[whichSet];
 
-    // Adjust translation based on direction
-    if (moveDown) {
-        currSet.translation[0] = translationX;
-        currSet.translation[1] += moveDownSpeed; // Move right
-    }
+        // Adjust translation based on direction
+        if (moveUp) {
+            currSet.translation[0] = 0; // Snap to origin
+            currSet.translation[1] -= moveSpeed; // Move right
+        } else {
+            currSet.translation[1] = 0; // Snap to origin
+            
 
-    // Check if any triangle hits the boundary (assume [-1, 1] normalized device coords)
-    var newPosX = currSet.center[1] + currSet.translation[1];
-    if (newPosX >= 1.5 || newPosX <= -0.5) {
-        boundaryHitAlienBullet = true;
-        // console.log("bingo") 
+        }
+
+        // Check if any triangle hits the boundary (assume [-1, 1] normalized device coords)
+        var newPosX = currSet.center[1] + currSet.translation[1];
+        if (newPosX >= 1.5 || newPosX <= -0.5) {
+            // boundaryHit = true;
+            console.log("bingo") 
+        }
     }
 
     // Reverse direction if boundary is hit
-    if (boundaryHitAlienBullet) {
-        currSet.visible = false;
-        resetAlienBullet(bulletIndex, alienIndex);
-        return;
+    // if (boundaryHit) {
+    //     console.log("hitt hit hit")
+    //     currSet.translation[1] = inputTriangles[0].translation[1]; 
+    //     currSet.translation[0] = inputTriangles[0].translation[0]; 
+    //     console.log(inputTriangles[whichSet].vertices);
+    //     // inputTriangles[1].vertices = inputTriangles[0].vertices;
+    //     console.log(inputTriangles[1].vertices);
+    //     bulletFire = 0;
+    //     clearInterval(translationIntervalId);
+    //     return;
+    // }
+}
+
+let time = 0; // Time variable for oscillation
+const frequency = 0.05; // Speed of oscillation
+const amplitude = 0.5; // Maximum horizontal oscillation
+const dropSpeed = -0.025; // Speed of dropping along the y-axis
+let times = [];
+
+function updateSinusoidalTranslation( ) {
+
+    if(times.length == 0) {
+        for(let i=0; i<inputTriangles.length; i++) {
+            times.push(0);
+            inputTriangles[i].visible = true;
+        }
     }
+
+    // Target a specific triangle set (e.g., the second triangle)
+    for(let i=2; i<6; i++) {
+        currSet = inputTriangles[i];
+        if (!currSet.visible) continue;
+        // currSet.attack = true;
+        times[i] += frequency; // Increment time for oscillation
+        // Apply sinusoidal motion to the x-axis
+        currSet.translation[0] = amplitude * Math.sin(times[i]);
+
+        // Decrease the y-axis position to simulate dropping
+        currSet.translation[1] += dropSpeed;
+        // startAlienTranslationUpdates();
+
+        // Check if it reaches the bottom boundary and reset
+        if (currSet.translation[1] < -1.75) { // Assuming -1.5 is the "ground"
+            // currSet.translation[1] = 1.5; // Reset to the top
+            // currSet.translation[0] = 0; // Center the x-axis
+            // times[i] = 0; // Reset time for oscillation
+            currSet.visible = false; // Make the triangle disappear
+        }
+    }
+    // renderModels(); // Re-render the scene with updated translations
+    requestAnimationFrame(updateSinusoidalTranslation); // Schedule the next frame
+
 }
-
-function resetBullet() {
-    bulletFire = 0; // Stop bullet firing
-    let bullet = inputTriangles[1];
-    let spaceship = inputTriangles[0];
-
-    // Reset bullet position to spaceship
-    bullet.translation[1] = spaceship.translation[1];
-    bullet.translation[0] = spaceship.translation[0];
-
-    clearInterval(translationIntervalId); // Stop the bullet movement interval
-}
-
-function resetAlienBullet(bulletIndex, alienIndex) {
-    bulletFire = 0; // Stop bullet firing
-    let bullet = inputTriangles[bulletIndex];
-    let spaceship = inputTriangles[alienIndex];
-
-    // Reset bullet position to spaceship
-    bullet.translation[1] = spaceship.translation[1];
-    bullet.translation[0] = spaceship.translation[0];
-
-    clearInterval(translationAlienIntervalId); // Stop the bullet movement interval
-    translationAlienIntervalId = setInterval(checkCollisionBulletWithAlien, 10); // Start collision detection
-}
-
 
 /* MAIN -- HERE is where execution begins after window load */
 
@@ -974,22 +707,7 @@ function main() {
     loadModels(); // load in the models from tri file
     setupShaders(); // setup the webGL shaders
     renderModels(); // draw the triangles using webGL
-    // Bind event listeners for starting and resetting the game
-    document.addEventListener("keydown", (event) => {
-        if (event.code === "KeyS") {
-            startGame(); // Start the game when "S" is pressed
-        } else if (event.code === "KeyR") {
-            resetGame(); // Reset the game when "R" is pressed
-        } else if (event.code === 'Digit1' && event.shiftKey) {
-            // Your code here when the space bar is pressed
-            console.log('Space bar was pressed!');
-            INPUT_TRIANGLES_URL = "makeItOwn.json";
-            setupWebGLFile("pokematch.png")
-            loadModels(); // load in the triangles from tri file
-            setupShaders(); // setup the webGL shaders
-            renderModels(); // draw the triangles using webGL
-        }
-    });
-    
+    requestAnimationFrame(updateSinusoidalTranslation);
+    setInterval(updateTranslations, 50);
   
 } // end main
