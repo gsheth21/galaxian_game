@@ -138,6 +138,31 @@ function checkCollisionBulletWithAlien() {
     }
 }
 
+function checkCollisionBulletWithShip(bulletIndex, alienIndex) {
+
+    let bullet = inputTriangles[bulletIndex]; // Assuming inputTriangles[1] is the bullet
+    let bulletPos = vec3.fromValues(bullet.center[0] + bullet.translation[0], bullet.center[1] + bullet.translation[1], 0); // Bullet position in 3D
+    
+    let ship = inputTriangles[0];
+    if (ship.attack === false) {
+        let shipPos = vec3.fromValues(ship.center[0] + ship.translation[0], ship.center[1] + ship.translation[1], 0); // Bullet position in 3D
+
+        let distance = vec3.distance(bulletPos, shipPos);
+        let collisionThreshold = 0.15;
+
+        // Check for intersection (bounding box collision detection)
+        if ( distance< collisionThreshold) {
+            ship.attack = true;
+            console.log(`Hit ship !`);
+            ship.visible = false;
+            inputTriangles[1].visible = false;
+
+            resetAlienBullet(bulletIndex, alienIndex);
+            return;
+        }
+    }
+}
+
 function checkCollisionAlienWithShip(i, ship) {
     let alien = inputTriangles[i];
     let bullet1 = inputTriangles[i+1];// Iterate through all aliens
@@ -365,6 +390,10 @@ function updateSinusoidalTranslation(startIndex) {
             resolve(); // Resolve when the first triangle finishes
             return;
         }
+
+        checkCollisionBulletWithShip(startIndex + 1, startIndex);
+        checkCollisionBulletWithShip(startIndex + 2, startIndex);
+        checkCollisionBulletWithShip(startIndex + 3, startIndex);
 
         renderModels();
         // Schedule the next frame
